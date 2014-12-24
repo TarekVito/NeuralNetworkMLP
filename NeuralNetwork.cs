@@ -134,7 +134,7 @@ namespace NN_Project
             return output.IndexOf(output.Max()) + 1;
         }
 
-        public double Testing(List<List<double>> TestingData, List<int> TestingLabels)
+        public double startTesting(List<List<double>> TestingData, List<int> TestingLabels)
         {
             for (int t = 0; t < TestingData.Count; ++t)                                //Adding 1 for each patterm (the bias term)
                 TestingData[t].Insert(0, 1);
@@ -143,7 +143,9 @@ namespace NN_Project
             for (int t = 0; t < TestingData.Count; ++t)                           //Lists Initialization
             {
                 List<double> lastLayerOutput = forwardPropagation(TestingData[t]);
-                sumPatternError += (lastLayerOutput.IndexOf(lastLayerOutput.Max()) == (TestingLabels[t] - 1)) ? 0 : 1; //Counting
+                for (int i = 0; i < lastLayerOutput.Count; ++i)
+                    sumPatternError += (lastLayerOutput[i] - ((TestingLabels[t] - 1) == i ? 1 : 0)) *
+                        (lastLayerOutput[i] - ((TestingLabels[t] - 1) == i ? 1 : 0));
             }
             double ErrorPercentage = sumPatternError / (double)TestingData.Count;
 
@@ -170,8 +172,9 @@ namespace NN_Project
 
                     //Forward Propagation
                     List<double> lastLayerOutput = forwardPropagation(trainingData[t]);
-                    sumPatternError += (lastLayerOutput.IndexOf(lastLayerOutput.Max()) == (trainingLabels[t] - 1)) ? 0 : 1; //Counting
-                                                                                                                     //misclassified points
+                    for (int i = 0; i < lastLayerOutput.Count; ++i)
+                        sumPatternError += (lastLayerOutput[i] - ((trainingLabels[t] - 1) == i ? 1 : 0)) *
+                            (lastLayerOutput[i] - ((trainingLabels[t] - 1) == i ? 1 : 0));
 
                     //Backward Propagation
                     backwardPropagation(trainingLabels[t]);
