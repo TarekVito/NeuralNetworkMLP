@@ -67,7 +67,7 @@ namespace NN_Project
             else
                 return (bActParam / aActParam) * (aActParam - (val)) * (aActParam + (val));
         }
-        public List<double> getMean(List<List<double>> Samples)
+        private List<double> getMean(List<List<double>> Samples)
         {
             List<double> Mean = new List<double>();
 
