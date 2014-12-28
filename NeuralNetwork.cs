@@ -18,8 +18,8 @@ namespace NN_Project
         List<List<List<double>>> weights;                               //Holds all the weights .. Note : same lecture's indexing
                                                                         //weights[layer][rightNeuron][leftNeuron]
         List<List<double>> activationValue, deltaValue;                 //Hold propagations' values
-
-
+        double maxAbsOfData = 0;
+        List<double> mean;
 
         public NeuralNetwork(List<int> _nnLayers, double _ETA, double _maxError,
             double _maxIters, char _actFun, double _aActParam, double _bActParam)         //MaxError : maximum allowed error
@@ -30,11 +30,13 @@ namespace NN_Project
             aActParam = _aActParam;
             bActParam = _bActParam;
             ETA = _ETA;
-            nnLayers = _nnLayers;
+            nnLayers = new List<int>(_nnLayers);
             errorList = new List<double>();
             activationValue = new List<List<double>>();
             deltaValue = new List<List<double>>();
             weights = new List<List<List<double>>>();
+            for (int i = 0; i < nnLayers.Count; ++i)
+                nnLayers[i]++;
             Random rand = new Random();                         //Random weights initialization
             for (int i = 0; i < nnLayers.Count - 1; ++i)
             {
@@ -43,7 +45,7 @@ namespace NN_Project
                 {
                     weights[i].Add(new List<double>());
                     for (int k = 0; k < nnLayers[i]; ++k)
-                        weights[i][j].Add(rand.NextDouble() / 1000.0);
+                        weights[i][j].Add(rand.NextDouble()/1000.0);
                 }
             }
             nnLayers.RemoveAt(0); //Remove the number of input neurons .. No need for it
@@ -65,7 +67,48 @@ namespace NN_Project
             else
                 return (bActParam / aActParam) * (aActParam - (val)) * (aActParam + (val));
         }
+        public List<double> getMean(List<List<double>> Samples)
+        {
+            List<double> Mean = new List<double>();
 
+            for (int x = 0; x < Samples[0].Count; ++x)
+            {
+                double sum = 0.0;
+                for (int i = 0; i < Samples.Count; ++i)
+                    sum += Samples[i][x];
+                Mean.Add(sum / (double)Samples.Count);
+            }
+
+            return Mean;
+        }
+
+        private void updateNormalizationParam(List<List<double>> data)
+        {
+            mean = getMean(data);
+            for (int i = 0; i < data.Count; ++i)
+                for (int j = 0; j < data[i].Count; ++j)
+                    maxAbsOfData = Math.Max(maxAbsOfData, Math.Abs(data[i][j] - mean[j]));
+        }
+        private void normalize(List<List<double>> data)
+        {
+            for (int i = 0; i < data.Count; ++i)
+                for (int j = 0; j < data[i].Count; ++j)
+                {
+                    data[i][j] -= mean[j];
+                    data[i][j] /= maxAbsOfData;
+                }
+        }
+        private List<List<double>> copyList(List<List<double>> l)
+        {
+            List<List<double>> ll = new List<List<double>>();
+            for (int i = 0; i < l.Count; ++i)
+            {
+                ll.Add(new List<double>());
+                for (int j = 0; j < l[i].Count; ++j)
+                    ll[i].Add(l[i][j]);
+            }
+            return ll;
+        }
         private void backwardPropagation(int trainingLabel)                             //trainingLabel needed to 
         {                                                                               //compute output neurons' deltas.
 
@@ -134,8 +177,10 @@ namespace NN_Project
             return output.IndexOf(output.Max()) + 1;
         }
 
-        public double startTesting(List<List<double>> TestingData, List<int> TestingLabels)
+        public double startTestingMSE(List<List<double>> TestingData, List<int> TestingLabels)
         {
+            TestingData = copyList(TestingData);
+            normalize(TestingData);
             for (int t = 0; t < TestingData.Count; ++t)                                //Adding 1 for each patterm (the bias term)
                 TestingData[t].Insert(0, 1);
             double sumPatternError = 0;
@@ -146,14 +191,34 @@ namespace NN_Project
                 for (int i = 0; i < lastLayerOutput.Count; ++i)
                     sumPatternError += (lastLayerOutput[i] - ((TestingLabels[t] - 1) == i ? 1 : 0)) *
                         (lastLayerOutput[i] - ((TestingLabels[t] - 1) == i ? 1 : 0));
+                
+            }
+            double ErrorPercentage = sumPatternError / (double)(4 * TestingData.Count);
+
+            return ErrorPercentage;
+        }
+        public double startTesting(List<List<double>> TestingData, List<int> TestingLabels)
+        {
+            TestingData = copyList(TestingData);
+            normalize(TestingData);
+            for (int t = 0; t < TestingData.Count; ++t)                                //Adding 1 for each patterm (the bias term)
+                TestingData[t].Insert(0, 1);
+            double sumPatternError = 0;
+            sumPatternError = 0;
+            for (int t = 0; t < TestingData.Count; ++t)                           //Lists Initialization
+            {
+                List<double> lastLayerOutput = forwardPropagation(TestingData[t]);
+                sumPatternError += lastLayerOutput.IndexOf(lastLayerOutput.Max()) == (TestingLabels[t] - 1)?0:1;
             }
             double ErrorPercentage = sumPatternError / (double)TestingData.Count;
 
             return ErrorPercentage;
         }
-
         public double startTraining(List<List<double>> trainingData, List<int> trainingLabels)
         {
+            trainingData = copyList(trainingData);
+            updateNormalizationParam(trainingData);
+            normalize(trainingData);
             for (int t = 0; t < trainingData.Count; ++t)                                //Adding 1 for each patterm (the bias term)
                 trainingData[t].Insert(0, 1);
             double sumPatternError = 0;
@@ -169,7 +234,7 @@ namespace NN_Project
                         activationValue.Add(new List<double>(nnLayerList));
                         deltaValue.Add(new List<double>(nnLayerList));
                     }
-
+                   
                     //Forward Propagation
                     List<double> lastLayerOutput = forwardPropagation(trainingData[t]);
                     for (int i = 0; i < lastLayerOutput.Count; ++i)
@@ -181,12 +246,13 @@ namespace NN_Project
 
                     //Updating the weights
                     updateWeights(trainingData[t]);
+
                 }
                 errorList.Add((sumPatternError / (double)trainingData.Count));
                 if (errorList.Last() < maxError)
-                    return sumPatternError;
+                    break;
             }
-            return sumPatternError;
+            return errorList.Last();
         }
     }
 
